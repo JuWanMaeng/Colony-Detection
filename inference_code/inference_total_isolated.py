@@ -1,9 +1,10 @@
-import os
 import glob
+import os
+
 import cv2
-from ultralytics import YOLO
 from tqdm import tqdm
-import numpy as np
+
+from ultralytics import YOLO
 
 # =============================
 # Stage 설정 (사용자 지정)
@@ -17,38 +18,46 @@ STAGE_CONFIGS = [
 MERGE_NMS_IOU = 0.5
 MERGE_MAX_KEEP = 5000
 
-ISOLATED_IOU_THR = 0.05   # 겹침 판단용 IoU (작게)
-ISOLATED_IOA_THR = 0.05   # 겹침 판단용 IoA (작은 박스 기준 비율)
+ISOLATED_IOU_THR = 0.05  # 겹침 판단용 IoU (작게)
+ISOLATED_IOA_THR = 0.05  # 겹침 판단용 IoA (작은 박스 기준 비율)
 
 # 클래스/색
 CLASS_COLONY_ID = 0
 BOX_COLOR = (255, 0, 0)  # BGR: green
 
+
 # =============================
 # 유틸: IoU/IoA 계산
 # =============================
 def _intersection(a, b):
-    x1 = max(a[0], b[0]); y1 = max(a[1], b[1])
-    x2 = min(a[2], b[2]); y2 = min(a[3], b[3])
+    x1 = max(a[0], b[0])
+    y1 = max(a[1], b[1])
+    x2 = min(a[2], b[2])
+    y2 = min(a[3], b[3])
     inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
     return inter
 
+
 def iou_xyxy(a, b):
     inter = _intersection(a, b)
-    if inter <= 0: return 0.0
-    area_a = max(0.0, (a[2]-a[0]) * (a[3]-a[1]))
-    area_b = max(0.0, (b[2]-b[0]) * (b[3]-b[1]))
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, (a[2] - a[0]) * (a[3] - a[1]))
+    area_b = max(0.0, (b[2] - b[0]) * (b[3] - b[1]))
     union = area_a + area_b - inter
     return inter / union if union > 0 else 0.0
 
+
 def ioa_smaller(a, b):
-    """작은 박스 기준 IoA = inter / min(area_a, area_b)"""
+    """작은 박스 기준 IoA = inter / min(area_a, area_b)."""
     inter = _intersection(a, b)
-    if inter <= 0: return 0.0
-    area_a = max(0.0, (a[2]-a[0]) * (a[3]-a[1]))
-    area_b = max(0.0, (b[2]-b[0]) * (b[3]-b[1]))
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, (a[2] - a[0]) * (a[3] - a[1]))
+    area_b = max(0.0, (b[2] - b[0]) * (b[3] - b[1]))
     denom = min(area_a, area_b)
     return inter / denom if denom > 0 else 0.0
+
 
 # =============================
 # 정사각형 변환 (긴 변 기준, expand) - COLONY만
@@ -73,6 +82,7 @@ def make_square_box(x1, y1, x2, y2, img_w, img_h):
 
     return x1_new, y1_new, x2_new, y2_new
 
+
 # =============================
 # Global NMS (COLONY 우선 → conf 내림차순)
 # dets: [cls, x1, y1, x2, y2, conf]
@@ -88,13 +98,14 @@ def global_nms(dets, iou_thresh=0.5, max_keep=5000):
         kept.append(di)
         if len(kept) >= max_keep:
             break
-        for j in range(i+1, len(dets)):
+        for j in range(i + 1, len(dets)):
             if suppressed[j]:
                 continue
             dj = dets[j]
             if iou_xyxy(di[1:5], dj[1:5]) >= iou_thresh:
                 suppressed[j] = True
     return kept
+
 
 # =============================
 # Isolated 필터 (IoU + IoA 동시 사용)
@@ -119,6 +130,7 @@ def filter_isolated_boxes(preds, thr_iou=ISOLATED_IOU_THR, thr_ioa=ISOLATED_IOA_
             isolated.append(bi)
     return isolated
 
+
 # =============================
 # Grid-based Inference
 # =============================
@@ -130,8 +142,8 @@ def infer_grid(model, img, rows, cols, conf, iou, max_det=3000):
 
     for r in range(rows):
         for c in range(cols):
-            x1g, x2g = xs[c], xs[c+1]
-            y1g, y2g = ys[r], ys[r+1]
+            x1g, x2g = xs[c], xs[c + 1]
+            y1g, y2g = ys[r], ys[r + 1]
             crop = img[y1g:y2g, x1g:x2g]
             if crop.size == 0:
                 continue
@@ -147,6 +159,7 @@ def infer_grid(model, img, rows, cols, conf, iou, max_det=3000):
                 X2, Y2 = x2 + x1g, y2 + y1g
                 preds.append([cls, X1, Y1, X2, Y2, conf_score])
     return preds
+
 
 # =============================
 # Multi-Stage Inference
@@ -178,6 +191,7 @@ def infer_multiscale_colony_isolated(model, img):
     isolated_colony = [p for p in isolated if p[0] == CLASS_COLONY_ID]
     return isolated_colony
 
+
 # =============================
 # 시각화 및 저장 (라벨: 'isolated' 고정)
 # =============================
@@ -189,11 +203,11 @@ def save_isolated_result(img_path, preds, save_dir="results_multiscale_isolated"
     vis = img.copy()
     for cls, x1, y1, x2, y2, conf in preds:
         cv2.rectangle(vis, (int(x1), int(y1)), (int(x2), int(y2)), BOX_COLOR, 2)
-        cv2.putText(vis, "isolated", (int(x1), max(15, int(y1)-5)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, BOX_COLOR, 1)
+        cv2.putText(vis, "isolated", (int(x1), max(15, int(y1) - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, BOX_COLOR, 1)
     name = os.path.splitext(os.path.basename(img_path))[0]
     out = os.path.join(save_dir, f"{name}_isolated.png")
     cv2.imwrite(out, vis)
+
 
 # =============================
 # 전체 이미지 처리
@@ -219,6 +233,7 @@ def process_all_images(model_path, dataset_root):
         preds_isolated = infer_multiscale_colony_isolated(model, img)
         save_isolated_result(img_path, preds_isolated, save_dir="results_multiscale_isolated")
     print("✅ 완료! 결과는 results_multiscale_isolated 폴더에 저장되었습니다.")
+
 
 # =============================
 # 실행부

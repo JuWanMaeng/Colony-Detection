@@ -1,29 +1,35 @@
-from ultralytics import YOLO
-import cv2, os, json, glob, datetime, base64
-import numpy as np
+import base64
+import datetime
+import glob
+import json
+import os
+
+import cv2
 from tqdm import tqdm
+
+from ultralytics import YOLO
 
 # =========================
 # 설정 (요청 그대로)
 # =========================
-model_path  = "experiments/colony_2class_85_small/weights/best.pt"
-img_dir     = "C:/workspace/datasets/colony_177"
+model_path = "experiments/colony_2class_85_small/weights/best.pt"
+img_dir = "C:/workspace/datasets/colony_177"
 output_root = "C:/workspace/autolabel_output"
 
 yolo_dir = os.path.join(output_root, "labels_yolo")
 json_dir = os.path.join(output_root, "labels_json")
-vis_dir  = os.path.join(output_root, "visualize")
+vis_dir = os.path.join(output_root, "visualize")
 os.makedirs(yolo_dir, exist_ok=True)
 os.makedirs(json_dir, exist_ok=True)
-os.makedirs(vis_dir,  exist_ok=True)
+os.makedirs(vis_dir, exist_ok=True)
 
 # 클래스 이름/색상
-class_names  = {0: "COLONY", 1: "USELESS"}
+class_names = {0: "COLONY", 1: "USELESS"}
 class_colors = {0: (0, 255, 0), 1: (0, 0, 255)}  # COLONY=초록, USELESS=빨강
 
 # Inference 하이퍼파라미터
 CONF = 0.5
-IOU  = 0.5
+IOU = 0.5
 MAXDET_CROP = 2000
 
 # 병합(NMS) 하이퍼파라미터 (최종)
@@ -40,19 +46,23 @@ GRID_COLS = 4
 # =========================
 def iou_xyxy(a, b):
     # a,b: [x1,y1,x2,y2]
-    x1 = max(a[0], b[0]); y1 = max(a[1], b[1])
-    x2 = min(a[2], b[2]); y2 = min(a[3], b[3])
+    x1 = max(a[0], b[0])
+    y1 = max(a[1], b[1])
+    x2 = min(a[2], b[2])
+    y2 = min(a[3], b[3])
     inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    if inter <= 0: return 0.0
-    area_a = max(0.0, a[2]-a[0]) * max(0.0, a[3]-a[1])
-    area_b = max(0.0, b[2]-b[0]) * max(0.0, b[3]-b[1])
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
     union = area_a + area_b - inter
     return inter / union if union > 0 else 0.0
+
 
 def nms_per_class(dets, iou_thresh=0.5, max_keep=5000):
     """
     dets: list of (cls, conf, x1,y1,x2,y2)
-    클래스별 NMS → keep 반환
+    클래스별 NMS → keep 반환.
     """
     kept = []
     dets = sorted(dets, key=lambda x: x[1], reverse=True)  # conf desc
@@ -70,7 +80,7 @@ def nms_per_class(dets, iou_thresh=0.5, max_keep=5000):
             keep_cls.append(di)
             if len(keep_cls) >= max_keep:
                 break
-            for j in range(i+1, len(items_sorted)):
+            for j in range(i + 1, len(items_sorted)):
                 if suppressed[j]:
                     continue
                 dj = items_sorted[j]
@@ -86,34 +96,38 @@ def nms_per_class(dets, iou_thresh=0.5, max_keep=5000):
 # Inference helpers
 # =========================
 def infer_full(model, img_bgr):
-    """원본 이미지 전체 inference → dets(list of (cls, conf, x1,y1,x2,y2))"""
+    """원본 이미지 전체 inference → dets(list of (cls, conf, x1,y1,x2,y2))."""
     H, W = img_bgr.shape[:2]
     res = model(img_bgr, conf=CONF, iou=IOU, max_det=MAXDET_CROP, verbose=False)[0]
     dets = []
     for b in res.boxes:
-        cls = int(b.cls[0]); conf = float(b.conf[0])
+        cls = int(b.cls[0])
+        conf = float(b.conf[0])
         x1, y1, x2, y2 = map(float, b.xyxy[0])
         # clamp
-        x1 = max(0.0, min(float(W), x1)); y1 = max(0.0, min(float(H), y1))
-        x2 = max(0.0, min(float(W), x2)); y2 = max(0.0, min(float(H), y2))
+        x1 = max(0.0, min(float(W), x1))
+        y1 = max(0.0, min(float(H), y1))
+        x2 = max(0.0, min(float(W), x2))
+        y2 = max(0.0, min(float(H), y2))
         if x2 > x1 and y2 > y1:
             dets.append((cls, conf, x1, y1, x2, y2))
     return dets
 
+
 def infer_grid_4x4(model, img_bgr):
     """
     4x4 그리드(16분할) inference → 원본 좌표로 복원된 det 리스트 반환
-    return: list of (cls, conf, x1,y1,x2,y2)
+    return: list of (cls, conf, x1,y1,x2,y2).
     """
     H, W = img_bgr.shape[:2]
     dets_all = []
-    xs = [int(round(W * i / GRID_COLS)) for i in range(GRID_COLS + 1)]
-    ys = [int(round(H * j / GRID_ROWS)) for j in range(GRID_ROWS + 1)]
+    xs = [round(W * i / GRID_COLS) for i in range(GRID_COLS + 1)]
+    ys = [round(H * j / GRID_ROWS) for j in range(GRID_ROWS + 1)]
 
     for r in range(GRID_ROWS):
         for c in range(GRID_COLS):
-            x1g, x2g = xs[c], xs[c+1]
-            y1g, y2g = ys[r], ys[r+1]
+            x1g, x2g = xs[c], xs[c + 1]
+            y1g, y2g = ys[r], ys[r + 1]
             if x2g <= x1g or y2g <= y1g:
                 continue
 
@@ -121,23 +135,29 @@ def infer_grid_4x4(model, img_bgr):
             res = model(crop, conf=CONF, iou=IOU, max_det=MAXDET_CROP, verbose=False)[0]
 
             for b in res.boxes:
-                cls  = int(b.cls[0])
+                cls = int(b.cls[0])
                 conf = float(b.conf[0])
                 x1, y1, x2, y2 = map(float, b.xyxy[0])  # crop 좌표
-                X1 = x1 + x1g; Y1 = y1 + y1g
-                X2 = x2 + x1g; Y2 = y2 + y1g
+                X1 = x1 + x1g
+                Y1 = y1 + y1g
+                X2 = x2 + x1g
+                Y2 = y2 + y1g
                 # clamp
-                X1 = max(0.0, min(float(W), X1)); Y1 = max(0.0, min(float(H), Y1))
-                X2 = max(0.0, min(float(W), X2)); Y2 = max(0.0, min(float(H), Y2))
+                X1 = max(0.0, min(float(W), X1))
+                Y1 = max(0.0, min(float(H), Y1))
+                X2 = max(0.0, min(float(W), X2))
+                Y2 = max(0.0, min(float(H), Y2))
                 if X2 > X1 and Y2 > Y1:
                     dets_all.append((cls, conf, X1, Y1, X2, Y2))
 
     return dets_all
 
+
 def filter_split_by_full(full_dets, split_dets, iou_thr=0.5):
     """
     FULL 박스 우선: split 박스가 동일 클래스 full 박스와 IoU >= iou_thr면 버림.
-    return: kept_split (list of dets)
+
+    return: kept_split (list of dets).
     """
     kept = []
     for sc, sconf, sx1, sy1, sx2, sy2 in split_dets:
@@ -163,7 +183,7 @@ img_list = glob.glob(os.path.join(img_dir, "*.jpg")) + glob.glob(os.path.join(im
 
 for img_path in tqdm(img_list, desc="Auto Labeling (Full + 16-split, Full-priority)"):
     name = os.path.splitext(os.path.basename(img_path))[0]
-    img  = cv2.imread(img_path)
+    img = cv2.imread(img_path)
     if img is None:
         print(f"[WARN] Cannot read: {img_path}")
         continue
@@ -179,8 +199,16 @@ for img_path in tqdm(img_list, desc="Auto Labeling (Full + 16-split, Full-priori
     for cls, conf, x1, y1, x2, y2 in dets_full:
         color = class_colors.get(cls, (255, 255, 255))
         cv2.rectangle(img_full_vis, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        cv2.putText(img_full_vis, f"{class_names.get(cls,'UNK')} {conf:.2f}",
-                    (int(x1), max(15, int(y1)-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+        cv2.putText(
+            img_full_vis,
+            f"{class_names.get(cls, 'UNK')} {conf:.2f}",
+            (int(x1), max(15, int(y1) - 5)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
     cv2.imwrite(os.path.join(vis_dir, f"{name}_full.png"), img_full_vis)
 
     # --------------------
@@ -196,13 +224,13 @@ for img_path in tqdm(img_list, desc="Auto Labeling (Full + 16-split, Full-priori
     # --------------------
     dets_split_kept = filter_split_by_full(dets_full, dets_split, iou_thr=IOU)
     dets_merged = dets_full + dets_split_kept
-    dets_final  = nms_per_class(dets_merged, iou_thresh=MERGE_NMS_IOU, max_keep=MERGE_MAX_KEEP)
+    dets_final = nms_per_class(dets_merged, iou_thresh=MERGE_NMS_IOU, max_keep=MERGE_MAX_KEEP)
 
     # --------------------
     # 4) 저장: YOLO txt / Dreamer JSON / 최종 시각화
     # --------------------
     # YOLO txt
-    yolo_lines  = []
+    yolo_lines = []
     # JSON
     shapes_json = []
     # 최종 시각화
@@ -217,19 +245,29 @@ for img_path in tqdm(img_list, desc="Auto Labeling (Full + 16-split, Full-priori
         yolo_lines.append(f"{cls} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
 
         # JSON (절대좌표)
-        shapes_json.append({
-            "label": class_names.get(cls, "UNKNOWN"),
-            "points": [[x1, y1], [x2, y2]],
-            "group_id": None,
-            "shape_type": "rectangle",
-            "flags": {}
-        })
+        shapes_json.append(
+            {
+                "label": class_names.get(cls, "UNKNOWN"),
+                "points": [[x1, y1], [x2, y2]],
+                "group_id": None,
+                "shape_type": "rectangle",
+                "flags": {},
+            }
+        )
 
         # 최종 시각화
         color = class_colors.get(cls, (255, 255, 255))
         cv2.rectangle(img_final_vis, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        cv2.putText(img_final_vis, f"{class_names.get(cls,'UNK')} {conf:.2f}",
-                    (int(x1), max(15, int(y1)-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+        cv2.putText(
+            img_final_vis,
+            f"{class_names.get(cls, 'UNK')} {conf:.2f}",
+            (int(x1), max(15, int(y1) - 5)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
 
     # txt 저장
     with open(os.path.join(yolo_dir, f"{name}.txt"), "w") as f:
@@ -251,7 +289,7 @@ for img_path in tqdm(img_list, desc="Auto Labeling (Full + 16-split, Full-priori
         "imageData": image_data_b64,
         "multichannel": {},
         "imageHeight": H,
-        "imageWidth":  W
+        "imageWidth": W,
     }
     with open(os.path.join(json_dir, f"{name}.json"), "w") as f:
         json.dump(json_data, f, indent=2)
