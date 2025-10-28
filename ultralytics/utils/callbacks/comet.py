@@ -10,7 +10,13 @@ import cv2
 import numpy as np
 
 from ultralytics.utils import LOGGER, RANK, SETTINGS, TESTS_RUNNING, ops
-from ultralytics.utils.metrics import ClassifyMetrics, DetMetrics, OBBMetrics, PoseMetrics, SegmentMetrics
+from ultralytics.utils.metrics import (
+    ClassifyMetrics,
+    DetMetrics,
+    OBBMetrics,
+    PoseMetrics,
+    SegmentMetrics,
+)
 
 try:
     assert not TESTS_RUNNING  # do not log pytest
@@ -261,7 +267,7 @@ def _format_prediction_annotations(image_path, metadata, class_label_map=None, c
         class_label_map = {class_map[k]: v for k, v in class_label_map.items()}
     try:
         # import pycotools utilities to decompress annotations for various tasks, e.g. segmentation
-        from faster_coco_eval.core.mask import decode  # noqa
+        from faster_coco_eval.core.mask import decode
     except ImportError:
         decode = None
 
@@ -350,7 +356,7 @@ def _create_prediction_metadata_map(model_predictions) -> dict:
 def _log_confusion_matrix(experiment, trainer, curr_step, curr_epoch) -> None:
     """Log the confusion matrix to Comet experiment."""
     conf_mat = trainer.validator.confusion_matrix.matrix
-    names = list(trainer.data["names"].values()) + ["background"]
+    names = [*list(trainer.data["names"].values()), "background"]
     experiment.log_confusion_matrix(
         matrix=conf_mat, labels=names, max_categories=len(names), epoch=curr_epoch, step=curr_step
     )

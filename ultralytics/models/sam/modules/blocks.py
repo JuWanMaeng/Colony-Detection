@@ -13,7 +13,13 @@ from torch import Tensor, nn
 from ultralytics.nn.modules import MLP, LayerNorm2d, MLPBlock
 
 from .transformer import Attention, TwoWayAttentionBlock, TwoWayTransformer
-from .utils import add_decomposed_rel_pos, apply_rotary_enc, compute_axial_cis, window_partition, window_unpartition
+from .utils import (
+    add_decomposed_rel_pos,
+    apply_rotary_enc,
+    compute_axial_cis,
+    window_partition,
+    window_unpartition,
+)
 
 
 class DropPath(nn.Module):
@@ -619,7 +625,7 @@ class MultiScaleBlock(nn.Module):
         mlp_ratio: float = 4.0,
         drop_path: float = 0.0,
         norm_layer: nn.Module | str = "LayerNorm",
-        q_stride: tuple[int, int] = None,
+        q_stride: tuple[int, int] | None = None,
         act_layer: type[nn.Module] = nn.GELU,
         window_size: int = 0,
     ):

@@ -1,22 +1,23 @@
-import os
 import glob
+import os
+
 import cv2
-import numpy as np
 from tqdm import tqdm
+
 from ultralytics import YOLO
 
 # ================================
 # 설정값
 # ================================
 MODEL_PATH = "experiments/colony_2class_small_noval/weights/best.pt"
-IMG_DIR    = "C:/workspace/datasets/colony_2class_noval/images/test"
-LABEL_DIR  = "C:/workspace/datasets/colony_2class_noval/labels/test"
+IMG_DIR = "C:/workspace/datasets/colony_2class_noval/images/test"
+LABEL_DIR = "C:/workspace/datasets/colony_2class_noval/labels/test"
 OUTPUT_DIR = "visual_results"
 
-IOU_THR_MATCH = 0.5            # TP 매칭 기준 IoU
-MERGE_NMS_IOU = 0.1            # 멀티스케일 병합용 NMS IoU
+IOU_THR_MATCH = 0.5  # TP 매칭 기준 IoU
+MERGE_NMS_IOU = 0.1  # 멀티스케일 병합용 NMS IoU
 MERGE_MAX_KEEP = 5000
-OVERLAP_RATIO = 0.2            # 그리드 크롭 overlap
+OVERLAP_RATIO = 0.2  # 그리드 크롭 overlap
 
 # 멀티스케일 단계
 STAGE_CONFIGS = [
@@ -29,30 +30,35 @@ STAGE_CONFIGS = [
 CLASS_NAMES = {0: "COLONY", 1: "USELESS"}
 
 # 상태별 색상
-COLOR_TP = (0, 255, 0)     # Green
-COLOR_FP = (0, 0, 255)     # Red
-COLOR_FN = (0, 255, 255)   # Yellow
+COLOR_TP = (0, 255, 0)  # Green
+COLOR_FP = (0, 0, 255)  # Red
+COLOR_FN = (0, 255, 255)  # Yellow
 
 # 클래스별 선 두께(간이 점선 효과 대용)
-LINE_SOLID = 2   # COLONY (class 0)
-LINE_DASH  = 1   # USELESS (class 1)
+LINE_SOLID = 2  # COLONY (class 0)
+LINE_DASH = 1  # USELESS (class 1)
+
 
 # ================================
 # 기하 유틸
 # ================================
 def _intersection_xyxy(a, b):
-    x1 = max(a[0], b[0]); y1 = max(a[1], b[1])
-    x2 = min(a[2], b[2]); y2 = min(a[3], b[3])
+    x1 = max(a[0], b[0])
+    y1 = max(a[1], b[1])
+    x2 = min(a[2], b[2])
+    y2 = min(a[3], b[3])
     return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
 
 def iou_xyxy(a, b):
     inter = _intersection_xyxy(a, b)
     if inter <= 0:
         return 0.0
-    area_a = max(0.0, (a[2]-a[0]) * (a[3]-a[1]))
-    area_b = max(0.0, (b[2]-b[0]) * (b[3]-b[1]))
-    union  = area_a + area_b - inter
+    area_a = max(0.0, (a[2] - a[0]) * (a[3] - a[1]))
+    area_b = max(0.0, (b[2] - b[0]) * (b[3] - b[1]))
+    union = area_a + area_b - inter
     return inter / union if union > 0 else 0.0
+
 
 def make_square_box(x1, y1, x2, y2, img_w, img_h):
     w = x2 - x1
@@ -65,6 +71,7 @@ def make_square_box(x1, y1, x2, y2, img_w, img_h):
     x2n = min(float(img_w), cx + side * 0.5)
     y2n = min(float(img_h), cy + side * 0.5)
     return x1n, y1n, x2n, y2n
+
 
 # ================================
 # 병합 NMS (conf 내림차순)
@@ -80,13 +87,14 @@ def global_nms(dets, iou_thresh=0.5, max_keep=5000):
         kept.append(di)
         if len(kept) >= max_keep:
             break
-        for j in range(i+1, len(dets)):
+        for j in range(i + 1, len(dets)):
             if suppressed[j]:
                 continue
             dj = dets[j]
             if iou_xyxy(di[1:5], dj[1:5]) >= iou_thresh:
                 suppressed[j] = True
     return kept
+
 
 # ================================
 # 겹침 그리드 추론
@@ -115,13 +123,17 @@ def infer_grid_with_overlap(model, img, rows, cols, conf, iou, max_det=3000, ove
 
             res = model.predict(crop, conf=conf, iou=iou, max_det=max_det, verbose=False)[0]
             for b in res.boxes:
-                cls = int(b.cls[0]); confv = float(b.conf[0])
+                cls = int(b.cls[0])
+                confv = float(b.conf[0])
                 bx1, by1, bx2, by2 = map(float, b.xyxy[0])
                 # crop -> 원본 좌표
-                X1 = bx1 + x1_ov; Y1 = by1 + y1_ov
-                X2 = bx2 + x1_ov; Y2 = by2 + y1_ov
+                X1 = bx1 + x1_ov
+                Y1 = by1 + y1_ov
+                X2 = bx2 + x1_ov
+                Y2 = by2 + y1_ov
                 preds.append([cls, X1, Y1, X2, Y2, confv])
     return preds
+
 
 # ================================
 # 멀티스케일 추론 (정사각형 보정 + 병합 NMS)
@@ -132,10 +144,14 @@ def infer_multiscale(model, img, overlap_ratio=0.2):
     merged = []
     for cfg in STAGE_CONFIGS:
         merged += infer_grid_with_overlap(
-            model, img,
-            rows=cfg["rows"], cols=cfg["cols"],
-            conf=cfg["conf"], iou=cfg["iou"], max_det=cfg["max_det"],
-            overlap_ratio=overlap_ratio
+            model,
+            img,
+            rows=cfg["rows"],
+            cols=cfg["cols"],
+            conf=cfg["conf"],
+            iou=cfg["iou"],
+            max_det=cfg["max_det"],
+            overlap_ratio=overlap_ratio,
         )
 
     # COLONY만 정사각형 보정
@@ -149,6 +165,7 @@ def infer_multiscale(model, img, overlap_ratio=0.2):
 
     return global_nms(sq, iou_thresh=MERGE_NMS_IOU, max_keep=MERGE_MAX_KEEP)
 
+
 # ================================
 # 라벨 로드 (YOLO txt -> xyxy)
 # ================================
@@ -156,18 +173,19 @@ def load_yolo_labels(label_path, img_w, img_h):
     boxes = []
     if not os.path.exists(label_path):
         return boxes
-    with open(label_path, 'r') as f:
+    with open(label_path) as f:
         for line in f.readlines():
             parts = line.strip().split()
             if len(parts) != 5:
                 continue
             cls, cx, cy, w, h = map(float, parts)
-            x1 = (cx - w/2) * img_w
-            y1 = (cy - h/2) * img_h
-            x2 = (cx + w/2) * img_w
-            y2 = (cy + h/2) * img_h
+            x1 = (cx - w / 2) * img_w
+            y1 = (cy - h / 2) * img_h
+            x2 = (cx + w / 2) * img_w
+            y2 = (cy + h / 2) * img_h
             boxes.append([int(cls), x1, y1, x2, y2])
     return boxes
+
 
 # ================================
 # 박스 그리기
@@ -177,6 +195,7 @@ def draw_box(vis, box, color, cls, text):
     thickness = LINE_SOLID if cls == 0 else LINE_DASH
     cv2.rectangle(vis, (x1, y1), (x2, y2), color, thickness)
     cv2.putText(vis, text, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
 
 # ================================
 # TP / FP / FN 시각화
@@ -205,26 +224,27 @@ def visualize_tp_fp_fn(img_path, preds, gt_boxes):
         if best_iou >= IOU_THR_MATCH and best_gt not in matched_gt:
             matched_pred.add(i)
             matched_gt.add(best_gt)
-            draw_box(vis, [px1, py1, px2, py2], COLOR_TP, cls_p, f"{CLASS_NAMES.get(cls_p,'?')} TP")
+            draw_box(vis, [px1, py1, px2, py2], COLOR_TP, cls_p, f"{CLASS_NAMES.get(cls_p, '?')} TP")
 
     # 2) FP: 매칭 실패한 예측
     for i, pred in enumerate(preds):
         if i in matched_pred:
             continue
-        cls_p, px1, py1, px2, py2, conf = pred
-        draw_box(vis, [px1, py1, px2, py2], COLOR_FP, cls_p, f"{CLASS_NAMES.get(cls_p,'?')} FP")
+        cls_p, px1, py1, px2, py2, _conf = pred
+        draw_box(vis, [px1, py1, px2, py2], COLOR_FP, cls_p, f"{CLASS_NAMES.get(cls_p, '?')} FP")
 
     # 3) FN: 매칭 실패한 GT
     for j, gt in enumerate(gt_boxes):
         if j in matched_gt:
             continue
         cls_g, gx1, gy1, gx2, gy2 = gt
-        draw_box(vis, [gx1, gy1, gx2, gy2], COLOR_FN, cls_g, f"{CLASS_NAMES.get(cls_g,'?')} FN")
+        draw_box(vis, [gx1, gy1, gx2, gy2], COLOR_FN, cls_g, f"{CLASS_NAMES.get(cls_g, '?')} FN")
 
     # 저장
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     name = os.path.splitext(os.path.basename(img_path))[0]
     cv2.imwrite(os.path.join(OUTPUT_DIR, f"{name}_perf.png"), vis)
+
 
 # ================================
 # 메인 루프
@@ -251,6 +271,7 @@ def main():
         visualize_tp_fp_fn(img_path, preds, gt_boxes)
 
     print(f"✅ 완료! 결과는 '{OUTPUT_DIR}' 폴더에 저장되었습니다.")
+
 
 # ================================
 # 실행부
