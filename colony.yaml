@@ -1,0 +1,16 @@
+# parent
+# ├── ultralytics
+# └── datasets
+#     └── coco8 ← downloads here (1 MB)
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+# path: C:/workspace/datasets/colony" # dataset root dir
+train: /workspace/datasets/colony_2class_noval/images/train # train images (relative to 'path') 4 images
+val: /workspace/datasets/colony_2class_noval/images/test # val images (relative to 'path') 4 images
+# test: /workspace/datasets/colony_2class/images/test
+
+# Classes
+names:
+  0: colony
+  1: useless
+
