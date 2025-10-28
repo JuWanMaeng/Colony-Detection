@@ -18,8 +18,8 @@ MERGE_NMS_IOU   = 0.1
 MERGE_MAX_KEEP  = 5000
 
 # Isolated 판정 파라미터 (요청값 유지)
-ISOLATED_IOU_THR = 0.2   # 겹침 판단용 IoU(작게)
-ISOLATED_IOA_THR = 0.2   # 겹침 판단용 IoA(작은 박스 기준 비율)
+ISOLATED_IOU_THR = 0.05   # 겹침 판단용 IoU(작게)
+ISOLATED_IOA_THR = 0.05  # 겹침 판단용 IoA(작은 박스 기준 비율)
 
 # 클래스/색
 CLASS_NAMES = {0: "COLONY", 1: "USELESS"}
@@ -207,43 +207,6 @@ def infer_multiscale_isolated_colony(model, img, overlap_ratio=0.2):
     iso_colony = [p for p in iso if p[0] == CLASS_COLONY_ID]
     return iso_colony
 
-# =============================
-# 시각화 & 저장
-# =============================
-def draw_and_save(img_path, preds, mode, out_dir="total_results", cut_ratio = False):
-    os.makedirs(out_dir, exist_ok=True)
-    img = cv2.imread(img_path)
-    if img is None: return
-
-    vis = img.copy()
-    H, W = vis.shape[:2]
-
-    if cut_ratio:
-        x_min_cut = W * cut_ratio   
-        x_max_cut = W * (1 - cut_ratio)
-        y_min_cut = H * cut_ratio
-        y_max_cut = H * (1 - cut_ratio)
-    
-    for cls, x1, y1, x2, y2, conf in preds:
-        if cut_ratio:
-            if (x1 < x_min_cut) or (y1 < y_min_cut) or (x2 > x_max_cut) or (y2 > y_max_cut):
-                continue  # 배양기 끝부분 오탐은 무시
-
-        if mode == "isolated":
-            color = COLOR_ISOLATED
-            label = None  # isolated 표시는 박스만
-        else:
-            color = COLOR_COLONY if cls == CLASS_COLONY_ID else COLOR_USELESS
-            label = CLASS_NAMES.get(cls, "UNK")
-
-        cv2.rectangle(vis, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        if label is not None:  # 안전하게 라벨 있을 때만 텍스트 출력
-            cv2.putText(vis, label, (int(x1), max(15, int(y1)-5)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
-
-    name = os.path.splitext(os.path.basename(img_path))[0]
-    suffix = {"full": "_a_full.png", "ms": "_b_ms.png", "isolated": "_isolated.png"}[mode]
-    cv2.imwrite(os.path.join(out_dir, name + suffix), vis)
 
 # =============================
 # 전체 이미지 처리 (train/val/test 모두)
@@ -260,16 +223,12 @@ def process_all_images(model_path, dataset_root, overlap_ratio=0.2, cut_ratio = 
         images += glob.glob(os.path.join(d, "*.png"))
         images += glob.glob(os.path.join(d, "*.jpg"))
     images = sorted(images)
-    images = ['yeast_0930_1002_2025-10-01_Images_A3_100ul_48h.png']
+    # images = ['yeast_0930_1002_2025-10-01_Images_A3_100ul_48h.png']
 
     print(f"🔍 Total Images Found: {len(images)}")
     for img_path in tqdm(images, desc="Saving Full/MS/Isolated"):
         img = cv2.imread(img_path)
         if img is None: continue
-
-        # 1) Full Prediction (원본 전체)
-        full_preds = infer_full_image(model, img, conf=0.5, iou=0.5, max_det=3000)
-        draw_and_save(img_path, full_preds, mode="full", out_dir="total_results", cut_ratio=cut_ratio)
 
         # 2) Multi-Scale Prediction (Overlap 적용, 1x1은 내부에서 skip)
         ms_preds = infer_multiscale(model, img, overlap_ratio=overlap_ratio)
