@@ -2,3 +2,4 @@
 *.png
 *.ipynb
 __pycache__/
+total_results_txt/
