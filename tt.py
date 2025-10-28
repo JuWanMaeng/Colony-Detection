@@ -1,7 +1,9 @@
-import torch
-import cv2
 import glob
 import time
+
+import cv2
+import torch
+
 from ultralytics import YOLO
 
 # =============================
@@ -49,8 +51,8 @@ torch.cuda.synchronize()
 elapsed_single = time.time() - start
 fps_single = len(imgs) / elapsed_single
 
-print(f"\n🧩 Single Inference")
-print(f"⏱️ Elapsed: {elapsed_single*1000:.2f} ms | FPS: {fps_single:.2f}")
+print("\n🧩 Single Inference")
+print(f"⏱️ Elapsed: {elapsed_single * 1000:.2f} ms | FPS: {fps_single:.2f}")
 
 # ==========================================================
 # 5️⃣ BATCH INFERENCE (16장 한 번에 실행)
@@ -65,14 +67,14 @@ torch.cuda.synchronize()
 elapsed_batch = time.time() - start
 fps_batch = len(imgs) / elapsed_batch
 
-print(f"\n🧩 Batch Inference")
-print(f"⏱️ Elapsed: {elapsed_batch*1000:.2f} ms | FPS: {fps_batch:.2f}")
+print("\n🧩 Batch Inference")
+print(f"⏱️ Elapsed: {elapsed_batch * 1000:.2f} ms | FPS: {fps_batch:.2f}")
 
 # ==========================================================
 # 6️⃣ 비교 요약
 # ==========================================================
-speedup = (elapsed_single / elapsed_batch)
+speedup = elapsed_single / elapsed_batch
 print("\n🚀 성능 비교 요약")
-print(f"Single: {elapsed_single*1000:.2f} ms ({fps_single:.2f} FPS)")
-print(f"Batch : {elapsed_batch*1000:.2f} ms ({fps_batch:.2f} FPS)")
+print(f"Single: {elapsed_single * 1000:.2f} ms ({fps_single:.2f} FPS)")
+print(f"Batch : {elapsed_batch * 1000:.2f} ms ({fps_batch:.2f} FPS)")
 print(f"⚡ Speed-up (Batch vs Single): {speedup:.2f}x")

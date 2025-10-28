@@ -265,7 +265,6 @@ To integrate Weights & Biases (W&B) with your Ultralytics YOLO11 tuning process:
 
     ```python
     import wandb
-
     from ultralytics import YOLO
 
     wandb.init(project="YOLO-Tuning", entity="your-entity")

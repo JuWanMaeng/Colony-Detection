@@ -13,4 +13,3 @@ val: /workspace/datasets/colony_2class_noval/images/test # val images (relative 
 names:
   0: colony
   1: useless
-

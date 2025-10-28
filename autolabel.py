@@ -1,6 +1,13 @@
-from ultralytics import YOLO
-import cv2, os, json, glob, datetime, base64
+import base64
+import datetime
+import glob
+import json
+import os
+
+import cv2
 from tqdm import tqdm
+
+from ultralytics import YOLO
 
 # ---------------------------------
 # 설정
@@ -17,13 +24,10 @@ os.makedirs(json_dir, exist_ok=True)
 os.makedirs(vis_dir, exist_ok=True)
 
 # 클래스 이름 및 색상 지정
-class_names = {
-    0: "COLONY",
-    1: "USELESS"
-}
+class_names = {0: "COLONY", 1: "USELESS"}
 class_colors = {
-    0: (0, 255, 0),    # 초록색 (COLONY)
-    1: (0, 0, 255)     # 빨강색 (USELESS)
+    0: (0, 255, 0),  # 초록색 (COLONY)
+    1: (0, 0, 255),  # 빨강색 (USELESS)
 }
 
 # ---------------------------------
@@ -40,14 +44,14 @@ img_list = glob.glob(os.path.join(img_dir, "*.jpg")) + glob.glob(os.path.join(im
 # 이미지별 처리
 # ---------------------------------
 for img_path in tqdm(img_list, desc="Auto Labeling"):
-    if img_path != 'C:/workspace/datasets/colony_177\\20251004_2025-10-02_Images_YPD.png':
+    if img_path != "C:/workspace/datasets/colony_177\\20251004_2025-10-02_Images_YPD.png":
         continue
     name = os.path.splitext(os.path.basename(img_path))[0]
     img = cv2.imread(img_path)
     h, w = img.shape[:2]
 
     # 모델 추론
-    results = model(img_path, conf=0.5, iou=0.5, verbose=False,max_det=2000)[0]
+    results = model(img_path, conf=0.5, iou=0.5, verbose=False, max_det=2000)[0]
 
     yolo_lines = []
     shapes_json = []
@@ -68,20 +72,21 @@ for img_path in tqdm(img_list, desc="Auto Labeling"):
         yolo_lines.append(f"{cls} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
 
         # ② Dreamer JSON용 (절대좌표)
-        shapes_json.append({
-            "label": class_names.get(cls, "UNKNOWN"),
-            "points": [[x1, y1], [x2, y2]],
-            "group_id": None,
-            "shape_type": "rectangle",
-            "flags": {}
-        })
+        shapes_json.append(
+            {
+                "label": class_names.get(cls, "UNKNOWN"),
+                "points": [[x1, y1], [x2, y2]],
+                "group_id": None,
+                "shape_type": "rectangle",
+                "flags": {},
+            }
+        )
 
         # ③ 시각화 이미지
         color = class_colors.get(cls, (255, 255, 255))
         label_text = f"{class_names.get(cls, 'UNKNOWN')} {conf:.4f}"
         cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-        cv2.putText(img, label_text, (int(x1), int(y1) - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        cv2.putText(img, label_text, (int(x1), int(y1) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
     # ---------------------------
     # ① YOLO txt 저장
@@ -109,7 +114,7 @@ for img_path in tqdm(img_list, desc="Auto Labeling"):
         "imageData": image_data,  # ✅ base64 인코딩 이미지 포함
         "multichannel": {},
         "imageHeight": h,
-        "imageWidth": w
+        "imageWidth": w,
     }
 
     with open(os.path.join(json_dir, f"{name}.json"), "w") as f:

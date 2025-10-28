@@ -1,8 +1,11 @@
+import glob
+import os
+
+import cv2
+
 import wandb
 from ultralytics import YOLO
-import os
-import glob
-import cv2
+
 
 # -------------------------------
 # 1) Training metrics logging
@@ -19,6 +22,7 @@ def log_train_metrics(trainer):
             log_data[f"val/{k}"] = v
     wandb.log(log_data, step=trainer.epoch)
 
+
 # -------------------------------
 # 2) IoU & Metrics
 # -------------------------------
@@ -32,6 +36,7 @@ def iou(box1, box2):
     box2_area = (xb - xa) * (yb - ya)
     union = box1_area + box2_area - inter_area
     return inter_area / union if union > 0 else 0
+
 
 def compute_metrics(pred_boxes, gt_boxes, iou_thresh=0.5):
     TP, FP, FN = 0, 0, 0
@@ -54,6 +59,7 @@ def compute_metrics(pred_boxes, gt_boxes, iou_thresh=0.5):
     f1 = 2 * precision * recall / (precision + recall + 1e-6) if (precision + recall) > 0 else 0
     return TP, FP, FN, precision, recall, f1
 
+
 # -------------------------------
 # 3) 학습 끝난 후 inference & wandb 업로드 (metrics만)
 # -------------------------------
@@ -75,9 +81,9 @@ def run_inference_and_log(best_model_path, test_images):
         gt_boxes = []
         label_path = img_path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
         if os.path.exists(label_path):
-            with open(label_path, "r") as f:
+            with open(label_path) as f:
                 for line in f.readlines():
-                    cls, x_c, y_c, bw, bh = map(float, line.strip().split())
+                    _cls, x_c, y_c, bw, bh = map(float, line.strip().split())
                     x1 = int((x_c - bw / 2) * w)
                     y1 = int((y_c - bh / 2) * h)
                     x2 = int((x_c + bw / 2) * w)
@@ -113,18 +119,16 @@ def run_inference_and_log(best_model_path, test_images):
     print(f"Total TP={total_TP}, FP={total_FP}, FN={total_FN}")
 
     # ✅ wandb에 한 번만 로깅
-    wandb.log({
-        "test/mean/F1": avg_f1
-    }, commit=True)
+    wandb.log({"test/mean/F1": avg_f1}, commit=True)
 
 
 # -------------------------------
 # 4) Main training function
 # -------------------------------
 def main():
-    exp_name = 'colony_2class_small_noval'
+    exp_name = "colony_2class_small_noval"
     wandb.init(project="colony", entity="aodwndhks", name=f"{exp_name}")
-    
+
     model = YOLO("yolo12s.pt")
 
     # 콜백 연결
@@ -135,20 +139,20 @@ def main():
         data="colony.yaml",
         epochs=1,
         imgsz=640,
-        cfg=f"cfgs/test6.yaml",
+        cfg="cfgs/test6.yaml",
         project="experiments",
         name=f"{exp_name}",
         plots=True,
-        max_det = 3000
+        max_det=3000,
     )
 
     # 학습 완료 후 best.pt로 inference
     best_model_path = os.path.join(results.save_dir, "weights", "best.pt")
     val_img_dir = f"C:/workspace/datasets/{exp_name}/images/val"
-    test_images = glob.glob(os.path.join(val_img_dir, "*.jpg")) + \
-                  glob.glob(os.path.join(val_img_dir, "*.png"))
+    test_images = glob.glob(os.path.join(val_img_dir, "*.jpg")) + glob.glob(os.path.join(val_img_dir, "*.png"))
 
     run_inference_and_log(best_model_path, test_images)
+
 
 if __name__ == "__main__":
     main()

@@ -43,8 +43,24 @@ import torch.cuda
 from ultralytics import YOLO, YOLOWorld
 from ultralytics.cfg import TASK2DATA, TASK2METRIC
 from ultralytics.engine.exporter import export_formats
-from ultralytics.utils import ARM64, ASSETS, IS_JETSON, LINUX, LOGGER, MACOS, TQDM, WEIGHTS_DIR, YAML
-from ultralytics.utils.checks import IS_PYTHON_3_13, check_imgsz, check_requirements, check_yolo, is_rockchip
+from ultralytics.utils import (
+    ARM64,
+    ASSETS,
+    IS_JETSON,
+    LINUX,
+    LOGGER,
+    MACOS,
+    TQDM,
+    WEIGHTS_DIR,
+    YAML,
+)
+from ultralytics.utils.checks import (
+    IS_PYTHON_3_13,
+    check_imgsz,
+    check_requirements,
+    check_yolo,
+    is_rockchip,
+)
 from ultralytics.utils.downloads import safe_download
 from ultralytics.utils.files import file_size
 from ultralytics.utils.torch_utils import get_cpu_info, select_device
@@ -286,7 +302,7 @@ class RF100Benchmark:
         with open(ds_link_txt, encoding="utf-8") as file:
             for line in file:
                 try:
-                    _, url, workspace, project, version = re.split("/+", line.strip())
+                    _, _url, workspace, project, version = re.split("/+", line.strip())
                     self.ds_names.append(project)
                     proj_version = f"{project}-{version}"
                     if not Path(proj_version).exists():
@@ -357,7 +373,7 @@ class RF100Benchmark:
                     map_val = lst["map50"]
         else:
             LOGGER.info("Single dict found")
-            map_val = [res["map50"] for res in eval_lines][0]
+            map_val = next(res["map50"] for res in eval_lines)
 
         with open(eval_log_file, "a", encoding="utf-8") as f:
             f.write(f"{self.ds_names[list_ind]}: {map_val}\n")
@@ -667,7 +683,7 @@ class ProfileModels:
         Returns:
             (str): Formatted table row string with model metrics.
         """
-        layers, params, gradients, flops = model_info
+        _layers, params, _gradients, flops = model_info
         return (
             f"| {model_name:18s} | {self.imgsz} | - | {t_onnx[0]:.1f}±{t_onnx[1]:.1f} ms | {t_engine[0]:.1f}±"
             f"{t_engine[1]:.1f} ms | {params / 1e6:.1f} | {flops:.1f} |"
@@ -692,7 +708,7 @@ class ProfileModels:
         Returns:
             (dict): Dictionary containing profiling results.
         """
-        layers, params, gradients, flops = model_info
+        _layers, params, _gradients, flops = model_info
         return {
             "model/name": model_name,
             "model/parameters": params,

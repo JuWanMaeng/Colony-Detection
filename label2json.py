@@ -1,9 +1,12 @@
-import os
 import json
+import os
+
 import cv2
 
 # 경로 설정
-json_dir = "C:/Users/jwmaeng/AppData/Local/AdvancedTechnologyInc/ATIDreamer100/data/DETECTION/ATI/colony_177/json/Offline User"
+json_dir = (
+    "C:/Users/jwmaeng/AppData/Local/AdvancedTechnologyInc/ATIDreamer100/data/DETECTION/ATI/colony_177/json/Offline User"
+)
 label_dir = "C:/Users/jwmaeng/AppData/Local/AdvancedTechnologyInc/ATIDreamer100/data/DETECTION/ATI/colony_177/label/Offline User"  # YOLO txt 파일 경로
 image_dir = "C:/workspace/datasets/colony_177"  # 원본 이미지 폴더 경로
 
@@ -25,7 +28,7 @@ for json_file in os.listdir(json_dir):
         continue
 
     # JSON 로드
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
 
     # 이미지 크기 읽기 (JSON에서 읽거나 직접 이미지 열기)
@@ -43,7 +46,7 @@ for json_file in os.listdir(json_dir):
 
     # shapes 새로 생성
     new_shapes = []
-    with open(label_path, "r") as lf:
+    with open(label_path) as lf:
         for line in lf.readlines():
             cls, xc, yc, bw, bh = map(float, line.strip().split())
             cls = int(cls)
@@ -54,13 +57,15 @@ for json_file in os.listdir(json_dir):
             y2 = (yc + bh / 2) * h
 
             # JSON 구조에 맞게 append
-            new_shapes.append({
-                "label": class_names.get(cls, "UNKNOWN"),
-                "points": [[x1, y1], [x2, y2]],
-                "group_id": None,
-                "shape_type": "rectangle",
-                "flags": {}
-            })
+            new_shapes.append(
+                {
+                    "label": class_names.get(cls, "UNKNOWN"),
+                    "points": [[x1, y1], [x2, y2]],
+                    "group_id": None,
+                    "shape_type": "rectangle",
+                    "flags": {},
+                }
+            )
 
     # JSON의 shapes 갱신
     data["shapes"] = new_shapes
