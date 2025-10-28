@@ -4,9 +4,9 @@
 [![Downloads](https://static.pepy.tech/badge/ultralytics)](https://clickpy.clickhouse.com/dashboard/ultralytics)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics/)
 
-To install the `ultralytics` package in developer mode, which allows you to modify the source code directly, ensure you have [Git](https://git-scm.com/) and [Python](https://www.python.org/) 3.9 or later installed on your system. Then, follow these steps:
+To install the `Colony-Detection` package in developer mode, which allows you to modify the source code directly, ensure you have [Git](https://git-scm.com/) and [Python](https://www.python.org/) 3.9 or later installed on your system. Then, follow these steps:
 
-1.  Clone the `ultralytics` repository to your local machine using Git:
+1.  Clone the `Colony-Detection` repository to your local machine using Git:
 
     ```bash
     git clone https://github.com/JuWanMaeng/Colony-Detection.git
@@ -18,7 +18,7 @@ To install the `ultralytics` package in developer mode, which allows you to modi
     cd Colony-Detection
     ```
 
-3.  Install the package in editable mode (`-e`) along with its development dependencies (`[dev]`) using [pip](https://pip.pypa.io/en/stable/):
+3.  Install the package 
 
     ```bash
     pip install -r requirements.txt
