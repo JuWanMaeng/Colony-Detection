@@ -214,8 +214,6 @@ def infer_multiscale_isolated_colony(model, img, overlap_ratio=0.2):
 def process_all_images(model_path, dataset_root, overlap_ratio=0.2, cut_ratio = False):
     model = YOLO(model_path)
     img_dirs = [
-        # os.path.join(dataset_root, "train"),
-        # os.path.join(dataset_root, "val"),
         os.path.join(dataset_root, "test"),
     ]
     images = []
@@ -232,13 +230,11 @@ def process_all_images(model_path, dataset_root, overlap_ratio=0.2, cut_ratio = 
 
         # 2) Multi-Scale Prediction (Overlap 적용, 1x1은 내부에서 skip)
         ms_preds = infer_multiscale(model, img, overlap_ratio=overlap_ratio)
-        draw_and_save(img_path, ms_preds, mode="ms", out_dir="total_results", cut_ratio=cut_ratio)
 
         # 3) Isolated (COLONY only)
         iso_preds = infer_multiscale_isolated_colony(model, img, overlap_ratio=overlap_ratio)
-        draw_and_save(img_path, iso_preds, mode="isolated", out_dir="total_results", cut_ratio=cut_ratio)
 
-    print("✅ 완료! 결과는 total_results 폴더에 저장되었습니다.")
+
 
 # =============================
 # 실행부
