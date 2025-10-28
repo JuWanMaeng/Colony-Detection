@@ -16,7 +16,7 @@ COPY requirements.txt .
 
 # Python 패키지 설치
 RUN pip install --upgrade pip && \
-    pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu126 && \
+    pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128 && \
     pip install -r requirements.txt
 
 # 코드 복사 이렇게 하면 Docker build 시점의 코드 스냅샷이 이미지에 포함돼서
