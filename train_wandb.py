@@ -122,29 +122,28 @@ def run_inference_and_log(best_model_path, test_images):
 # 4) Main training function
 # -------------------------------
 def main():
-    exp_name = 'colony_2class_small_noval'
-    wandb.init(project="colony", entity="aodwndhks", name=f"{exp_name}")
+    exp_name = 'PCB_product2'
+    wandb.init(project="PCB", name=f"{exp_name}")
     
-    model = YOLO("yolo12s.pt")
+    model = YOLO("yolo12n.pt")
 
     # 콜백 연결
     model.add_callback("on_train_epoch_end", log_train_metrics)
 
     # 학습 실행
     results = model.train(
-        data="colony.yaml",
-        epochs=1,
+        data="C:/data/product2_yolo/data.yaml",
+        epochs=500,
         imgsz=640,
-        cfg=f"cfgs/test6.yaml",
+        cfg=f"cfgs/train_colony.yaml",
         project="experiments",
         name=f"{exp_name}",
         plots=True,
-        max_det = 3000
     )
 
     # 학습 완료 후 best.pt로 inference
     best_model_path = os.path.join(results.save_dir, "weights", "best.pt")
-    val_img_dir = f"C:/workspace/datasets/{exp_name}/images/val"
+    val_img_dir = f"C:/data/product2_yolo/test/images"
     test_images = glob.glob(os.path.join(val_img_dir, "*.jpg")) + \
                   glob.glob(os.path.join(val_img_dir, "*.png"))
 
