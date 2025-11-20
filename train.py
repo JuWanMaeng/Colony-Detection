@@ -6,16 +6,14 @@ def main():
     model = YOLO("yolo12n.pt")   # load a pretrained model (recommended for training)
     # model = YOLO("yolo12n.yaml").load("yolo12n.pt")  # build from YAML and transfer weights
 
-    # Train the model
-    results = model.train(data="colony.yaml", cfg="cfgs/test1.yaml" ,epochs=500, imgsz=640)
 
     results = model.train(
-        data="colony.yaml",
+        data=r"C:\data\product2_yolo\data.yaml",
         cfg="default.yaml",
         epochs=500,
         imgsz=640,
         project="C:/workspace/experiments",   # 결과 저장할 상위 폴더
-        name="colony_exp1",                   # 하위 폴더 이름
+        name="product_exp1",                   # 하위 폴더 이름
         exist_ok=True                         # 이미 있으면 덮어쓰기
     )
 
