@@ -4,3 +4,5 @@
 __pycache__/
 total_results_txt/
 *.onnx
+*.bmp
+*.jpg
